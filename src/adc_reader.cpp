@@ -3,7 +3,7 @@
 
 void adc_init() {
     // DEFAULT = 5 V reference. Required when using the internal pullup as bias
-    // (no external divider) — button voltages reach up to 5 V so the 1.1 V
+       // (no external divider) — button voltages reach up to 5 V so the 1.1 V
     // reference would clip Prev, Source, and None indistinguishably at 1023.
     analogReference(DEFAULT);
     pinMode(PIN_ADC, INPUT_PULLUP);
