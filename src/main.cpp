@@ -19,11 +19,7 @@ void setup() {
 
     Serial.println("# SWC voltage calibration");
     Serial.println("# Serial commands: ON / OFF");
-<<<<<<< HEAD
     Serial.println("# Plotter columns: Voltage_V");
-=======
-    Serial.println("# Button A: toggle sleep mode");
->>>>>>> f9cd1c4 (oled and buttons)
 }
 
 void loop() {
