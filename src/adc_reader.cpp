@@ -1,6 +1,7 @@
 #include "adc_reader.h"
 #include "config.h"
 
+
 void adc_init() {
     // DEFAULT = 5 V reference. Required when using the internal pullup as bias
        // (no external divider) — button voltages reach up to 5 V so the 1.1 V
@@ -15,4 +16,12 @@ int adc_read_raw() {
 
 float adc_read_voltage() {
     return adc_read_raw() * (ADC_REF_VOLTAGE / ADC_MAX_RAW);
+}
+
+float adc_read_voltage_avg() {
+    long sum = 0;
+    for (int i = 0; i < ADC_AVERAGE_SAMPLES; ++i) {
+        sum += adc_read_raw();
+    }
+    return (static_cast<float>(sum) / ADC_AVERAGE_SAMPLES) * (ADC_REF_VOLTAGE / ADC_MAX_RAW);
 }

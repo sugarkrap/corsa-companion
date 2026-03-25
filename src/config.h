@@ -22,4 +22,5 @@ static constexpr float ADC_REF_VOLTAGE = 5.0f;
 static constexpr int   ADC_MAX_RAW     = 1023;
 
 // ── Sampling ───────────────────────────────────────────────────────────────
-static constexpr int SAMPLE_INTERVAL_MS = 100;  // 10 Hz
+static constexpr int SAMPLE_INTERVAL_MS  = 100;  // 10 Hz
+static constexpr int ADC_AVERAGE_SAMPLES = 5;

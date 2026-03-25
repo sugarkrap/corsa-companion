@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "config.h"
 #include "adc_reader.h"
+#include "button.h"
+#include "oled_display.h"
 #include "serial_cmd.h"
 #include "tid_writer.h"
 
@@ -10,13 +12,18 @@ void setup() {
     Serial.begin(SERIAL_BAUD);
     delay(SERIAL_INIT_DELAY_MS);
 
+    oled_init();
     adc_init();
     serial_cmd_init();
     tid_writer_init(true);
 
     Serial.println("# SWC voltage calibration");
     Serial.println("# Serial commands: ON / OFF");
+<<<<<<< HEAD
     Serial.println("# Plotter columns: Voltage_V");
+=======
+    Serial.println("# Button A: toggle sleep mode");
+>>>>>>> f9cd1c4 (oled and buttons)
 }
 
 void loop() {
@@ -33,8 +40,8 @@ void loop() {
     if (now - s_last_sample_ms >= static_cast<unsigned long>(SAMPLE_INTERVAL_MS)) {
         s_last_sample_ms = now;
 
-        Serial.print("Voltage_V:");
-        Serial.println(adc_read_voltage(), 3);
+        float voltage = adc_read_voltage_avg();
+        oled_show_button(button_decode(voltage), voltage);
     }
 
     // ── TID display ───────────────────────────────────────────────────────
