@@ -50,12 +50,10 @@ void oled_show_button(const Button* btn, float voltage) {
     s_oled.setCursor(52, 16);
     s_oled.println(btn ? btn->label : '?');
 
-    if (!btn) {
-        s_oled.setTextSize(1);
-        s_oled.setCursor(32, 52);
-        s_oled.print(voltage, 3);
-        s_oled.println(" V");
-    }
+    s_oled.setTextSize(1);
+    s_oled.setCursor(32, 52);
+    s_oled.print(voltage, 3);
+    s_oled.println(" V");
 
     s_oled.display();
 }
