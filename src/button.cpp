@@ -3,11 +3,12 @@
 
 // My buttons, right doesn't work so it isn't there
 static const Button BUTTONS[] = {
-    {{1.718f, 1.728f}, ButtonValue::Minus, '-'},
-    {{1.728f, 1.738f}, ButtonValue::Plus,  '+'},
-    {{1.738f, 1.748f}, ButtonValue::O,     'O'},
-    {{1.775f, 1.793f}, ButtonValue::Left,  '<'},
-    {{1.808f, 1.878f}, ButtonValue::Up, '^'}
+    {{1.747f, 1.849f}, ButtonValue::Minus, '-'},
+    {{1.850f, 1.859f}, ButtonValue::Plus,  '+'},
+    {{1.860f, 1.869f}, ButtonValue::O,     'O'},
+    {{1.890f, 1.910f}, ButtonValue::Left,  '<'},
+    {{1.870f, 1.880f}, ButtonValue::Right, '>'},
+    {{1.940f, 1.950f}, ButtonValue::Up, '^'}
 };
 
 static constexpr int BUTTON_COUNT = sizeof(BUTTONS) / sizeof(BUTTONS[0]);

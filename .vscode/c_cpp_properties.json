@@ -10,13 +10,13 @@
             "includePath": [
                 "/home/makaron/Code/Corsa-C-SWC/include",
                 "/home/makaron/Code/Corsa-C-SWC/src",
-                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit SSD1306",
-                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit GFX Library",
-                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit BusIO",
+                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit SSD1306",
+                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit GFX Library",
+                "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit BusIO",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/cores/arduino",
-                "/home/makaron/.platformio/packages/framework-arduino-avr/variants/mega",
+                "/home/makaron/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                 "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
@@ -27,13 +27,13 @@
                 "path": [
                     "/home/makaron/Code/Corsa-C-SWC/include",
                     "/home/makaron/Code/Corsa-C-SWC/src",
-                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit SSD1306",
-                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit GFX Library",
-                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/mega/Adafruit BusIO",
+                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit SSD1306",
+                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit GFX Library",
+                    "/home/makaron/Code/Corsa-C-SWC/.pio/libdeps/nano/Adafruit BusIO",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/cores/arduino",
-                    "/home/makaron/.platformio/packages/framework-arduino-avr/variants/mega",
+                    "/home/makaron/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                     "/home/makaron/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
@@ -42,18 +42,18 @@
             },
             "defines": [
                 "PLATFORMIO=60119",
-                "ARDUINO_AVR_MEGA2560",
+                "ARDUINO_AVR_NANO",
                 "F_CPU=16000000L",
                 "ARDUINO_ARCH_AVR",
                 "ARDUINO=10808",
-                "__AVR_ATmega2560__",
+                "__AVR_ATmega328P__",
                 ""
             ],
             "cStandard": "gnu11",
             "cppStandard": "gnu++11",
             "compilerPath": "/home/makaron/.platformio/packages/toolchain-atmelavr/bin/avr-gcc",
             "compilerArgs": [
-                "-mmcu=atmega2560",
+                "-mmcu=atmega328p",
                 ""
             ]
         }
