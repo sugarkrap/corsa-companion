@@ -12,7 +12,6 @@ static DigitalPot    s_pot;
 
 static unsigned long s_pot_active_until_ms = 0;
 static unsigned long s_last_sample_ms      = 0;
-static ButtonValue   s_last_button         = ButtonValue::O;
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
@@ -58,22 +57,23 @@ void loop() {
     if (now - s_last_sample_ms >= static_cast<unsigned long>(SAMPLE_INTERVAL_MS)) {
         s_last_sample_ms = now;
 
-        float voltage = adc_read_voltage_avg();
-        const Button* btn = button_decode(voltage);
+        float vadc  = adc_read_voltage_avg();
+        float vidle = button_idle_vadc();
+        float pct   = (vidle > 0.0f) ? (vadc / vidle) * 100.0f : 0.0f;
 
+        const ButtonPct* btn = button_update(vadc);
+
+        Serial.print("VIdle:"); Serial.print(vidle, 3);
+        Serial.print(" VADC:");  Serial.print(vadc,  3);
+        Serial.print(" Pct:");   Serial.print(pct,   2);
         if (btn) {
-            if (btn->value != s_last_button) {
-                Serial.print("# Button: ");
-                Serial.print(btn->label);
-                Serial.print("  voltage: ");
-                Serial.print(voltage, 3);
-                Serial.println(" V");
-            }
+            Serial.print(" BTN:"); Serial.print(btn->label);
+            Serial.print(" <-- press");
+        } else if (button_just_went_idle()) {
+            Serial.print(" BTN:- <-- idle");
         } else {
-            Serial.print("# Odd reading: ");
-            Serial.print(voltage, 3);
-            Serial.println(" V");
+            Serial.print(" BTN:-");
         }
-        s_last_button = btn ? btn->value : ButtonValue::O;
+        Serial.println();
     }
 }

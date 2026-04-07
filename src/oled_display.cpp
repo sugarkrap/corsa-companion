@@ -38,7 +38,7 @@ void oled_show_voltage(float voltage) {
     s_oled.display();
 }
 
-void oled_show_button(const Button* btn, float voltage) {
+void oled_show_button(const ButtonPct* btn, float voltage) {
     s_oled.clearDisplay();
     s_oled.setTextColor(SSD1306_WHITE);
 
