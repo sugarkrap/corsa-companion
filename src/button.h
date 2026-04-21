@@ -22,6 +22,14 @@ const ButtonPct* button_decode_pct(float pct);
 // Returns nullptr while idle or while waiting for release.
 const ButtonPct* button_update(float vadc);
 
+// Force-set the idle reference directly — call once at startup with a
+// known-good averaged reading to skip the slow convergence period.
+void button_seed_idle(float vadc);
+
+// Returns the pct of the most recent confirmed press (whether matched or not),
+// then clears it. Returns 0 if no press has occurred since last call.
+float button_last_press_pct();
+
 // Current idle reference voltage, for debug output.
 float button_idle_vadc();
 

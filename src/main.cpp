@@ -2,6 +2,7 @@
 #include "config.h"
 #include "adc_reader.h"
 #include "button.h"
+#ifndef LIGHTWEIGHT
 #include "oled_display.h"
 #include "serial_cmd.h"
 #include "tid_display.h"
@@ -9,9 +10,11 @@
 
 static TIDDisplay    s_tid;
 static DigitalPot    s_pot;
-
 static unsigned long s_pot_active_until_ms = 0;
-static unsigned long s_last_sample_ms      = 0;
+#endif
+
+static unsigned long s_last_sample_ms = 0;
+static unsigned long s_ready_ms       = 0;
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
@@ -19,12 +22,17 @@ void setup() {
 
     // oled_init();
     adc_init();
+    delay(STARTUP_DELAY_MS);
+    button_seed_idle((static_cast<float>(adc_read_raw_avg()) / ADC_MAX_RAW) * ADC_REF_VOLTAGE);
+    s_ready_ms = millis();
+#ifndef LIGHTWEIGHT
     s_pot.setup(0);
-
     Serial.println("# Digital pot test — send A/S/D/F to trigger 11/25/60/80% for 400 ms");
+#endif
 }
 
 void loop() {
+#ifndef LIGHTWEIGHT
     // ── Serial key handling ───────────────────────────────────────────────
     if (Serial.available()) {
         char ch = (char)Serial.read();
@@ -51,21 +59,26 @@ void loop() {
         s_pot.write(100);
         Serial.println("# pot -> 100% (idle)");
     }
+#endif
 
-    // ── ADC sampling + button detection ───────────────────────────────────
+    // ── ADC sampling ──────────────────────────────────────────────────────
     unsigned long now = millis();
+    if (now < s_ready_ms) return;
     if (now - s_last_sample_ms >= static_cast<unsigned long>(SAMPLE_INTERVAL_MS)) {
         s_last_sample_ms = now;
 
-        float vadc  = adc_read_voltage_avg();
+        int   raw  = adc_read_raw_avg();
+        float vadc = (static_cast<float>(raw) / ADC_MAX_RAW) * ADC_REF_VOLTAGE;
+
         float vidle = button_idle_vadc();
         float pct   = (vidle > 0.0f) ? (vadc / vidle) * 100.0f : 0.0f;
+        const ButtonPct* btn      = button_update(vadc);
+        float            cal_pct  = button_last_press_pct();
 
-        const ButtonPct* btn = button_update(vadc);
-
-        Serial.print("VIdle:"); Serial.print(vidle, 3);
-        Serial.print(" VADC:");  Serial.print(vadc,  3);
-        Serial.print(" Pct:");   Serial.print(pct,   2);
+        Serial.print("Raw:"); Serial.print(raw);
+        Serial.print(" V:");  Serial.print(vadc, 3);
+        Serial.print(" VIdle:"); Serial.print(vidle, 3);
+        Serial.print(" Pct:"); Serial.print(pct, 2);
         if (btn) {
             Serial.print(" BTN:"); Serial.print(btn->label);
             Serial.print(" <-- press");
@@ -75,5 +88,13 @@ void loop() {
             Serial.print(" BTN:-");
         }
         Serial.println();
+
+        if (cal_pct > 0.0f) {
+            Serial.print("# CAL: {{");
+            Serial.print(cal_pct - 0.5f, 2); Serial.print("f, ");
+            Serial.print(cal_pct + 0.5f, 2); Serial.print("f}, ");
+            Serial.print(vidle, 3);          Serial.print("f, ");
+            Serial.println("ButtonValue::?, '?'},");
+        }
     }
 }

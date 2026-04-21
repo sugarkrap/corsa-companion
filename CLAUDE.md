@@ -29,99 +29,61 @@ The Nano also receives live telemetry from a companion **Raspberry Pi Pico 2W**
 
 The Nano runs at **5 V logic**. The ADC reference is set to the internal
 **1.1 V** bandgap (`analogReference(INTERNAL)`) to maximise resolution over
-the narrow SWC signal range that reaches the ADC pin (see section 3.3).
+the SWC signal range at A1.
 
 ---
 
-## 3. The SWC Circuit — Critical Hardware Facts
+## 3. The SWC Circuit
 
 ### 3.1 Resistor Ladder Architecture
 
 The Corsa C SWC uses a **resistor ladder** on the steering wheel. Each button
 connects a different resistance between the SWC signal wire and ground,
-producing a distinct voltage that the headunit ADC reads.
+producing a distinct voltage read by the ADC.
 
-**Approximate button voltages** (measured at the headunit connector, divider
-loaded by headunit input impedance):
+There is **no external pull-up or voltage divider**. A1 is configured with
+`INPUT_PULLUP` — the ATmega328P internal pull-up (~47 kΩ to VCC) is the only
+bias. This forms a voltage divider between the internal pull-up and each
+button's resistance to GND.
 
-| Button | Approx. Resistance to GND | Approx. Voltage |
-|--------|--------------------------|-----------------|
-| Vol +  | ~1.5 kΩ                  | ~0.4 V |
-| Vol −  | ~3.0 kΩ                  | ~0.7 V |
-| Next   | ~6.0 kΩ                  | ~1.2 V |
-| Prev   | ~12 kΩ                   | ~1.9 V |
-| Source | ~22 kΩ                   | ~2.4 V |
-| None   | open                     | ~3.3 V (pull-up) |
+A **100 µF filter cap** is placed on A1 to GND to suppress EMI from the car
+environment.
 
-> **These values are approximations for initial firmware development.**
-> Actual voltages must be measured on the bench with the real headunit
-> connected, or with an equivalent load resistor. Do not hard-code thresholds
-> without bench measurement — revise the ADC threshold table in `config.h`
-> once real readings are available.
+> Button ADC counts must be **calibrated on the bench** — the internal
+> pull-up tolerance (~20–50 kΩ) and the actual button resistor values both
+> affect the readings. Do not hard-code thresholds without measurement.
 
-### 3.2 CRITICAL: The Illumination Bias Rail
+### 3.2 Button Detection — Ratiometric Approach
 
-**The SWC signal wire is biased by the headunit's `LED+` (illumination) rail,
-not a standalone 5 V or 3.3 V rail.**
+Detection is **ratiometric**: each sample is expressed as a percentage of
+the current idle voltage rather than compared to absolute ADC counts. This
+makes the algorithm self-calibrating and tolerant of slow supply drift.
 
-Consequences:
+Key parameters (in `button.cpp`):
 
-- The SWC signal pin carries **no meaningful voltage when the headunit
-  illumination output is off** (i.e. ignition on but sidelights off).
-- Attempting to read the ADC in this state will return floating/noise values.
-- The firmware **must gate ADC reads** on whether the illumination rail is
-  active.
-- Detect illumination state by monitoring the `LED+` line via a voltage
-  divider into a Nano digital input pin (A1).
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `PRESS_THRESHOLD_PCT` | 3 % | Deviation from idle that opens a candidate press |
+| `RELEASE_THRESHOLD_PCT` | 2 % | Deviation below which the button is considered released |
+| `CONFIRM_SAMPLES` | 3 | Consecutive samples that must all exceed the threshold before a press is registered |
+| `IDLE_ALPHA` | 0.35 | Low-pass weight for idle tracking (upward drift only) |
 
-Never assume the SWC line is always valid. Always check the illumination gate.
+The idle reference tracks **upward only** — buttons can only pull the voltage
+away from the baseline, never above it, so downward excursions are never
+incorporated into the idle estimate.
 
-### 3.3 Voltage Divider — SWC Signal to Nano ADC
+A press is registered only after `CONFIRM_SAMPLES` consecutive readings all
+deviate by more than `PRESS_THRESHOLD_PCT`. A single noisy sample cannot
+fire a false press.
 
-The SWC signal runs at headunit logic levels (roughly 0–3.3 V loaded, up to
-~5 V unloaded). The Nano ADC absolute maximum is **5 V**, but we use the
-**1.1 V internal reference** for resolution — so the signal must be scaled
-below 1.1 V.
+Button ranges are defined in `button.cpp` as `(vadc / idle_vadc) * 100` at
+press time. **Calibrate these on the bench** — the ranges in source are
+placeholders from initial measurements.
 
-Use a **33 kΩ / 10 kΩ** voltage divider:
+### 3.3 Output Stage — Simulating Headunit Button Presses
 
-```
-SWC_SIG ──── 33kΩ ──┬── Nano A0 (ADC)
-                    │
-                   10kΩ
-                    │
-                   GND
-```
-
-Divider ratio: 10 / (33 + 10) = **0.233**.
-
-| Signal at SWC line | Voltage at A0 | Raw ADC (1.1 V ref, 10-bit) |
-|--------------------|---------------|-----------------------------|
-| 0.4 V (Vol+)       | ~0.093 V      | ~87                         |
-| 0.7 V (Vol−)       | ~0.163 V      | ~152                        |
-| 1.2 V (Next)       | ~0.279 V      | ~260                        |
-| 1.9 V (Prev)       | ~0.442 V      | ~411                        |
-| 2.4 V (Source)     | ~0.559 V      | ~520                        |
-| 3.3 V (None)       | ~0.767 V      | ~714                        |
-
-> These calculated counts assume ideal resistors and no headunit loading.
-> Calibrate on the bench — the counts above are starting points only.
-
-> The divider also loads the SWC line, affecting the voltage readings.
-> Keep these exact resistor values when cross-referencing thresholds —
-> changing them means re-deriving the entire table.
-
-> Use **1% resistors** for the divider. 5% tolerance shifts thresholds
-> enough to cause misidentification between adjacent buttons.
-
-### 3.4 Output Stage — Simulating Headunit Button Presses
-
-The Nano must **synthesise** SWC button presses to send to the headunit.
-It does this by driving a 2N7000 N-channel MOSFET that pulls the SWC line
-to ground through the appropriate button resistor. The headunit's own LED+
-bias already provides the voltage source — only a low-side switch is needed.
-
-Circuit (per Nano output pin → SWC line):
+The Nano synthesises SWC button presses via a 2N7000 N-channel MOSFET that
+pulls the SWC line to ground through the appropriate button resistor.
 
 ```
 SWC line ──── R_button ──── 2N7000 (drain)
@@ -129,23 +91,13 @@ SWC line ──── R_button ──── 2N7000 (drain)
 Nano D2 ──── 100Ω ──── 2N7000 (gate)
 ```
 
-D2 HIGH (5 V) → 2N7000 on → SWC line pulled through R_button to GND.
-D2 LOW → 2N7000 off → SWC line floats back to LED+ (no button pressed).
+D2 HIGH → 2N7000 on → SWC line pulled through R_button to GND.
+D2 LOW  → 2N7000 off → SWC line returns to idle.
 
-**Part summary:**
+Hold the output for at least **80 ms** so the headunit ADC registers the press.
 
-| Part | Role |
-|------|------|
-| 2N7000 N-ch MOSFET | Low-side switch; gate threshold ≈ 0.8–3 V, driven by 5 V GPIO |
-| 100 Ω | Gate series resistor — damps oscillation, limits gate charge current |
-| R_button | Sets the resistance to GND that the headunit ADC reads as a specific button |
-
-> The 2N7000 RDS(on) at VGS = 5 V is typically 5 Ω — negligible against
-> the 1.5 kΩ–22 kΩ button resistors.
-
-> Never drive the SWC line from a Nano GPIO pin directly. The line
-> interacts with the 12 V illumination rail. Always use this MOSFET
-> stage to isolate 5 V logic from the 12 V car circuit.
+> Never drive the SWC line directly from a Nano GPIO — the line interacts
+> with the car's 12 V circuitry. Always use the MOSFET stage.
 
 ---
 
@@ -153,72 +105,93 @@ D2 LOW → 2N7000 off → SWC line floats back to LED+ (no button pressed).
 
 | Nano Pin | Direction | Function |
 |----------|-----------|----------|
+| A1 | ADC IN | SWC signal read — `INPUT_PULLUP`, 100 µF cap to GND |
 | D2 | OUT | SWC output driver (2N7000 gate via 100 Ω) |
-| A0 | ADC IN | SWC signal read (via 33k/10k divider) |
-| A1 | DIG IN/OUT | Illumination gate — INPUT in car, OUTPUT on bench |
-| D4 | DIG IN | Sleep toggle button (external button to GND, INPUT_PULLUP) |
 | D13 | OUT | Built-in status LED |
 | D0 (RX) | UART RX | Telemetry from Pico |
 | D1 (TX) | UART TX | Commands to Pico |
 
-> D0/D1 are shared with the USB-Serial adapter on the Nano. Disconnect the
-> Pico UART lines when uploading firmware via USB.
+> A1 is used for the ADC input. A0 is intentionally avoided — on an ATtiny85
+> (the other supported target) A0 is shared with the RESET pin, which
+> interferes with ISP flashing.
 
-The Pico sends on **UART0 GPIO0 (TX) / GPIO1 (RX)** at 115200 baud.
+> D0/D1 are shared with the USB-Serial adapter. Disconnect the Pico UART
+> wires before flashing via USB.
+
+The Pico communicates on **UART0 GPIO0 (TX) / GPIO1 (RX)** at 115200 baud.
 
 ---
 
 ## 5. Firmware Architecture
 
-### 5.1 File Structure
+### 5.1 Build Environments
+
+| Environment | Board | Notes |
+|-------------|-------|-------|
+| `nano` | Arduino Nano (ATmega328P) | Full build — OLED, digital pot, TID display |
+| `mega` | Arduino Mega 2560 | Full build |
+| `uno` | Arduino Uno | Full build |
+| `micro` | Arduino Micro | Full build |
+| `nano_buttons_only` | Arduino Nano | `-D LIGHTWEIGHT` — ADC + button detection only |
+| `attiny85_buttons_only` | ATtiny85 | `-D LIGHTWEIGHT` — ADC + button detection only |
+
+The `LIGHTWEIGHT` flag strips all heavy peripherals (`oled_display`, `digital_pot`,
+`tid_display`, `serial_cmd`) via `#ifndef LIGHTWEIGHT` guards in `main.cpp`.
+The lightweight `build_src_filter` also excludes those `.cpp` files so the
+Adafruit SSD1306/GFX libraries are never linked.
+
+### 5.2 File Structure
 
 ```
 src/
-├── main.cpp          ← entry point, setup/loop
-├── config.h          ← all tunable constants (thresholds, pins, baud)
-├── adc_reader.h/.cpp ← ADC init, raw read, voltage conversion
-├── illum_gate.h/.cpp ← drive/read illumination gate on A1
-├── serial_cmd.h/.cpp ← non-blocking ON/OFF command parser
-├── sleep_mode.h/.cpp ← button A debounce, sleep state
-└── led_display.h/.cpp← D13 status LED patterns
+├── main.cpp            ← entry point, setup/loop
+├── config.h            ← all tunable constants (thresholds, pins, baud, timing)
+├── adc_reader.h/.cpp   ← ADC init, median read, single read
+├── button.h/.cpp       ← ratiometric state machine, button table
+├── oled_display.h/.cpp ← SSD1306 display (full build only)
+├── serial_cmd.h/.cpp   ← non-blocking serial command parser (full build only)
+├── tid_display.h/.cpp  ← TID scrolling display driver (full build only)
+├── tid_writer.h/.cpp   ← TID write helpers (full build only)
+├── digital_pot.h/.cpp  ← DS3502 I2C digital pot (full build only)
+├── led_display.h/.cpp  ← D13 status LED patterns
+└── illum_gate.h/.cpp   ← illumination gate (dead code, reserved)
 ```
 
-### 5.2 Main Loop Responsibilities
+### 5.3 Main Loop (current state)
 
 ```
+setup:
+  1. Serial.begin
+  2. adc_init() — sets INTERNAL (1.1 V) reference, dummy read to settle
+  3. Record s_ready_ms = millis() + STARTUP_DELAY_MS (2 s warmup)
+  [full build only]
+  4. s_pot.setup()
+
 loop:
-  1. Poll sleep button (D4) — if toggled, print state and return early
-  2. If sleeping: blink status LED, return
-  3. Poll serial for ON/OFF commands → drive illumination gate
-  4. Every SAMPLE_INTERVAL_MS: read ADC, print plotter line
+  [full build only]
+  1. Poll serial for A/S/D/F keys → drive digital pot for 150 ms pulses
+  2. Release pot to idle when pulse expires
+
+  3. If millis() < s_ready_ms: return  ← startup hold-off
+  4. Every SAMPLE_INTERVAL_MS (100 ms / 10 Hz):
+       raw  = adc_read_raw_avg()  ← 21-sample median
+       vadc = raw / 1023 * 1.1 V
+       btn  = button_update(vadc) ← ratiometric state machine
+       print Raw, V, VIdle, Pct, BTN
 ```
 
-### 5.3 Button Decoding (future — not yet implemented)
+### 5.4 ADC Sampling
 
-Define voltage thresholds as **midpoints** between adjacent raw ADC counts,
-not exact expected values. ADC noise and resistor tolerance mean exact
-matching will miss presses.
+`adc_read_raw_avg()` collects `ADC_AVERAGE_SAMPLES` (21) readings and returns
+the **median** — not the mean. This completely rejects spike outliers; a single
+EMI-corrupted sample cannot shift the result as long as fewer than half the
+samples are bad.
 
-```cpp
-// config.h — revise these after bench measurement (1.1 V ref, 10-bit)
-// Midpoints between the calculated counts in section 3.3
-static const int ADC_THRESHOLDS[][2] = {
-    {120,  /* VOL_UP  */ },   // 0–120
-    {206,  /* VOL_DOWN*/ },   // 120–206
-    {335,  /* NEXT    */ },   // 206–335
-    {465,  /* PREV    */ },   // 335–465
-    {617,  /* SOURCE  */ },   // 465–617
-    {1023, /* NONE    */ },   // 617–1023
-};
-```
+A 2-second startup delay (`STARTUP_DELAY_MS`) is enforced before the first
+read to let the internal pull-up and filter cap settle and give `VIdle` a
+clean initial seed.
 
-### 5.4 Debounce
-
-Require the same reading across **5 consecutive 100 ms samples** before
-registering a press. Use a counter variable across loop iterations — do not
-use `delay()` for debounce as it blocks serial polling.
-
-### 5.5 Telemetry JSON Format
+### 5.5 Telemetry JSON Format (Pico → Nano)
 
 The Pico sends newline-delimited JSON at 115200 baud:
 
@@ -230,55 +203,37 @@ Fields:
 - `vbat` — battery voltage (float, volts)
 - `ch1`–`ch4` — injector pulse widths per cylinder (int, microseconds)
 
-Use `Serial.available()` / non-blocking reads. Buffer lines manually and
-parse on newline. Handle truncated lines gracefully.
-
-> D0/D1 are used for both Pico UART and USB programming. Use `SoftwareSerial`
-> on other pins if simultaneous USB monitoring and Pico comms are needed.
-
 ---
 
-## 6. Status LED Behaviour (D13)
+## 6. Known Constraints and Non-Obvious Rules
 
-The Nano has no LED matrix. D13 (built-in LED) provides coarse state feedback.
-
-| State | D13 |
-|-------|-----|
-| Illumination gate ON | Solid on |
-| Illumination gate OFF | Off |
-| Sleep mode | Blinks at 1 Hz |
-
----
-
-## 7. Known Constraints and Non-Obvious Rules
-
-1. **SWC signal is only valid with illumination on.** Gate all ADC reads
-   behind the A1 illumination check. When illumination is off, serial output
-   can still run — just don't attempt button decoding.
+1. **No external pull-up or divider.** The only bias is the ATmega328P internal
+   pull-up. The 100 µF cap on A1 provides EMI filtering. Do not add external
+   resistors without re-deriving the button voltage table.
 
 2. **Do not drive SWC output and read SWC input simultaneously.** When D2 is
-   driving the 2N7000, A0 will read the driven voltage, not a button press.
+   driving the 2N7000, A1 will read the driven voltage, not a button press.
    Multiplex: read first, then drive if needed, then release.
 
-3. **The 2N7000 has a non-zero switching delay** (~10–100 ns). This is
-   fast enough to be ignored for button simulation. Still hold the output
-   for at least **80 ms** to ensure the headunit registers the press —
-   that constraint comes from the headunit ADC polling rate, not the MOSFET.
+3. **Button ranges in `button.cpp` are from initial bench calibration.**
+   Re-measure after any circuit change. The ratiometric approach absorbs slow
+   drift but not a change in the divider ratio.
 
-4. **D0/D1 are shared with the USB adapter.** Disconnect the Pico UART
-   wires before flashing. Consider `SoftwareSerial` if this becomes a
-   recurring problem.
+4. **A1 is shared with `PIN_ADC_REF` and `PIN_ILLUM` in `config.h`** — those
+   features are currently dead code. Do not activate them without resolving the
+   pin conflict.
 
-5. **Use 1% resistors** in the 33 kΩ / 10 kΩ divider. 5% tolerance shifts
-   ADC thresholds enough to cause misidentification between adjacent buttons.
+5. **D0/D1 are shared with the USB adapter.** Disconnect the Pico UART wires
+   before flashing.
 
-6. **ADC reference is 1.1 V internal.** Any voltage above ~1.1 V at A0 will
-   clip at 1023. The divider (×0.233) ensures the worst-case SWC signal
-   (~3.3 V) appears as ~0.77 V at A0 — safely below the clip point.
+6. **ADC reference is 1.1 V internal.** Any voltage above ~1.1 V at A1 clips
+   at Raw:1023. With the internal pull-up and open SWC line (no button) the
+   pin is pulled to VCC (5 V) and will clip — this is expected and the idle
+   tracker handles it correctly since clips only occur in the upward direction.
 
 ---
 
-## 8. Out of Scope (Do Not Implement Unless Asked)
+## 7. Out of Scope (Do Not Implement Unless Asked)
 
 - CAN bus or K-Line ECU communication (handled by Pico, not Nano)
 - Injector pulse scaling logic (Pico's domain)
@@ -287,25 +242,20 @@ The Nano has no LED matrix. D13 (built-in LED) provides coarse state feedback.
 
 ---
 
-## 9. Testing Without the Car
+## 8. Testing Without the Car
 
-For bench testing without a live SWC line:
-
-- Drive A0 from a potentiometer off the Nano's 3.3 V pin (or a bench supply)
-  through the same 33k/10k divider to simulate button voltages.
-- Send `ON` over serial to drive A1 HIGH (illumination active) and enable
-  ADC reads. Send `OFF` to simulate illumination absent.
-- Use a USB serial terminal / Arduino Serial Plotter at 9600 baud to watch
-  `Voltage_V` and `Illum` traces in real time.
-- Verify each button position produces a distinct, stable ADC count before
-  moving to in-car testing.
+- Connect the steering wheel SWC connector directly to A1 with the 100 µF cap
+  in place. The internal pull-up provides bias.
+- Use a USB serial terminal at 9600 baud to watch `Raw`, `V`, `VIdle`, `Pct`,
+  and `BTN` output at 10 Hz.
+- Press each button and record the stable `Pct` value — update the ranges in
+  `button.cpp` accordingly.
 
 ---
 
-## 10. Related Project Context
+## 9. Related Project Context
 
-This Nano is the **companion device** to the Pico 2W injector piggyback
-(`main.cpp`, `config.h`, `injector_channel.h` in the parallel project). The
+This Nano is the **companion device** to the Pico 2W injector piggyback. The
 two devices communicate over UART; they do not share code or flash. Treat the
 Pico as a black box that emits telemetry JSON — do not modify Pico firmware
 from this project.
