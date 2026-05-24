@@ -2,9 +2,9 @@
 #include <Arduino.h>
 
 // ── Pin definitions ───────────────────────────────────────────────────────────
-#define sda 4
-#define scl 5
-#define mrq 6
+#define sda 6
+#define scl 4
+#define mrq 5
 #define aa  7 // used to turn on the radio display, may not be used later down the line
 
 // ── Timing ───────────────────────────────────────────────────────────────────
