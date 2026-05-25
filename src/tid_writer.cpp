@@ -19,6 +19,8 @@
 // ── Debug ─────────────────────────────────────────────────────────────────────
 #define TID_DEBUG false
 
+static bool s_tid_connected = false;
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 static void tid_byte(byte data) {
@@ -164,7 +166,15 @@ void tid_writer_init(bool useAA = false) {
 }
 
 void sendTID(const char* text, bool handshakeWait) {
-    if (!start_tid(handshakeWait)) {
+    bool ok = start_tid(handshakeWait);
+    if (ok && !s_tid_connected) {
+        s_tid_connected = true;
+        Serial.println(F("[TID] connected"));
+    } else if (!ok && s_tid_connected) {
+        s_tid_connected = false;
+        Serial.println(F("[TID] lost"));
+    }
+    if (!ok) {
 #if TID_DEBUG
         Serial.println(F("[TID] Transmission aborted: handshake failed"));
 #endif

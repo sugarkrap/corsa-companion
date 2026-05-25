@@ -26,12 +26,9 @@ void TIDDisplay::display_text(const char* text) {
 }
 
 void TIDDisplay::update() {
-    if (_text_len <= 10) return;
-
     unsigned long now = millis();
-    if (now < _pause_until_ms) return;
 
-    if (now - _last_scroll_ms >= SCROLL_INTERVAL) {
+    if (_text_len > 10 && now >= _pause_until_ms && now - _last_scroll_ms >= SCROLL_INTERVAL) {
         _last_scroll_ms = now;
         _scroll_pos++;
         if (_scroll_pos > _text_len - 10) {
@@ -41,8 +38,9 @@ void TIDDisplay::update() {
             _pause_until_ms = now + SCROLL_END_PAUSE;
         }
         _build_frame();
-        _send();
     }
+
+    _send();
 }
 
 void TIDDisplay::set_symbol(uint8_t symbo, bool on) {
@@ -58,5 +56,13 @@ void TIDDisplay::_build_frame() {
 }
 
 void TIDDisplay::_send() {
+    static unsigned long s_last_log_ms = 0;
+    unsigned long now = millis();
+    if (now - s_last_log_ms >= 5000) {
+        s_last_log_ms = now;
+        Serial.print(F("[TID] frame: \""));
+        Serial.print(_frame);
+        Serial.println(F("\""));
+    }
     sendTID(_frame);
 }
