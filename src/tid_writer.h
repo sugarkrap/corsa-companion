@@ -19,7 +19,7 @@
 // Pin usage
 //   D4 — SCL
 //   D5 — MRQ
-//   D6 — SDA
+//   D7 — SDA
 
 // Call once in setup().
 void tid_writer_init(bool useAA);

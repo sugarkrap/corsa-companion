@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FIRMWARE_VERSION "1.2.0"
+#define FIRMWARE_VERSION "1.4.0"
 
 // ── Platform ───────────────────────────────────────────────────────────────
 // Arduino Mega (ATmega2560, 5 V logic, 10-bit ADC)

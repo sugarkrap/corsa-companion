@@ -26,9 +26,14 @@ void TIDDisplay::display_text(const char* text) {
 }
 
 void TIDDisplay::update() {
-    unsigned long now = millis();
+    // The TID holds its display after a single write — no continuous refresh needed.
+    // Only send when the scroll position advances.
+    if (_text_len <= 10) return;
 
-    if (_text_len > 10 && now >= _pause_until_ms && now - _last_scroll_ms >= SCROLL_INTERVAL) {
+    unsigned long now = millis();
+    if (now < _pause_until_ms) return;
+
+    if (now - _last_scroll_ms >= SCROLL_INTERVAL) {
         _last_scroll_ms = now;
         _scroll_pos++;
         if (_scroll_pos > _text_len - 10) {
@@ -38,9 +43,8 @@ void TIDDisplay::update() {
             _pause_until_ms = now + SCROLL_END_PAUSE;
         }
         _build_frame();
+        _send();
     }
-
-    _send();
 }
 
 void TIDDisplay::set_symbol(uint8_t symbo, bool on) {

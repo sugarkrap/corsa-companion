@@ -2,10 +2,10 @@
 #include <Arduino.h>
 
 // ── Pin definitions ───────────────────────────────────────────────────────────
-#define sda 6
+#define sda 7
 #define scl 4
 #define mrq 5
-#define aa  7 // used to turn on the radio display, may not be used later down the line
+#define aa  8 // used to turn on the radio display, may not be used later down the line
 
 // ── Timing ───────────────────────────────────────────────────────────────────
 #define tid_delay  180
@@ -167,17 +167,14 @@ void tid_writer_init(bool useAA = false) {
 
 void sendTID(const char* text, bool handshakeWait) {
     bool ok = start_tid(handshakeWait);
-    if (ok && !s_tid_connected) {
-        s_tid_connected = true;
-        Serial.println(F("[TID] connected"));
-    } else if (!ok && s_tid_connected) {
-        s_tid_connected = false;
-        Serial.println(F("[TID] lost"));
-    }
     if (!ok) {
 #if TID_DEBUG
         Serial.println(F("[TID] Transmission aborted: handshake failed"));
 #endif
+        if (s_tid_connected) {
+            s_tid_connected = false;
+            Serial.println(F("[TID] lost"));
+        }
         return;
     }
 
@@ -194,6 +191,12 @@ void sendTID(const char* text, bool handshakeWait) {
     }
 
     stop_tid();
+
+    // Log state change only after the full transaction is complete.
+    if (!s_tid_connected) {
+        s_tid_connected = true;
+        Serial.println(F("[TID] connected"));
+    }
 #if TID_DEBUG
     Serial.print(F("[TID] Sent: \""));
     for (uint8_t i = 0; i < DATA_BYTES; i++) Serial.print((text[i] != '\0') ? text[i] : ' ');

@@ -51,6 +51,10 @@ void loop() {
                 s_serial_buf[s_serial_len] = '\0';
                 if (strcmp(s_serial_buf, "version") == 0) {
                     Serial.println(FIRMWARE_VERSION);
+                } else if (strcmp(s_serial_buf, "keepalive") == 0) {
+                    s_idle_mode  = false;
+                    s_last_rx_ms = millis();
+                    Serial.println("ok");
                 } else {
                     s_tid.display_text(s_serial_buf);
                     s_idle_mode  = false;
